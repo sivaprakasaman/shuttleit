@@ -7,6 +7,7 @@ our $DEBUG = 1;
 our $DOIT = 1;
 our $DAEMONIZE = 1;
 our $WRITEPID = 0;
+my $RATCHET = 0;
 
 my $device = '/dev/shuttlexpress';
 my $pidfile = '/var/run/shuttleit.pl.pid';
@@ -60,7 +61,7 @@ sub read_device {
 	my(@bytes, $in);
 
 	while(read($fh, $in, 5)) {
-		# First bit (ring) is signed, rest are unsigned
+		# First bit () is signed, rest are unsigned
 		@bytes = unpack('cC*', $in);
 		&process_bytes(@bytes);
 
@@ -153,8 +154,12 @@ sub process_state {
 	#system "/usr/bin/xdotool key XF86AudioRaiseVolume" if $state->{dial_change} == 1;
 	#system "/usr/bin/xdotool key XF86AudioLowerVolume" if $state->{dial_change} == -1;
 
-	system "/usr/bin/xdotool key ctrl+plus" if $state->{ring_change} == 1;
-	system "/usr/bin/xdotool key ctrl+minus" if $state->{ring_change} == -1;
+	system "/usr/bin/xdotool key ctrl+plus" if($RATCHET == 0 && $state->{ring_change} == 1);
+	system "/usr/bin/xdotool key ctrl+minus" if($RATCHET == 0 && $state->{ring_change} == -1);
+
+	system "/usr/bin/xdotool key ctrl+plus" if($RATCHET == 1 && $state->{ring_change} == 1 && $state->{ring} > 0);
+	system "/usr/bin/xdotool key ctrl+minus" if($RATCHET == 1 && $state->{ring_change} == -1 && $state->{ring} < 0);
+
 
 	system "/usr/bin/xdotool key XF86AudioRaiseVolume" if $state->{dial_change} == 1;
 	system "/usr/bin/xdotool key XF86AudioLowerVolume" if $state->{dial_change} == -1;
@@ -164,7 +169,8 @@ sub process_state {
 	system "/usr/bin/xdotool key XF86AudioPrev" if $state->{down2};
 	system "/usr/bin/xdotool key XF86AudioPlay" if $state->{down3};
 	system "/usr/bin/xdotool key XF86AudioNext" if $state->{down4};
-	system "/usr/bin/xdotool key super+l" if $state->{down5};
+	#system "/usr/bin/xdotool key super+l" if $state->{down5};
+	$RATCHET = not($RATCHET) if($state->{down5});
 
 	# Stop if hold down button 1 + press button 3
 	#system "/usr/bin/xdotool key ctrl+s" if ($state->{btn1} && $state->{down3});
